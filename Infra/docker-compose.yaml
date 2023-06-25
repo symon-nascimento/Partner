@@ -1,0 +1,94 @@
+version: "3.3"
+networks:
+  partner_network:
+    
+    name: partner_network
+    driver: bridge
+  
+
+volumes:
+  sqlserver_data:
+  minio_data:
+
+services:
+
+  cms:
+    image:  directus/directus:9
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "cms-uploads.host.wsl:${HOST_IP_ADDRESS}"
+      - "host.wsl:${HOST_IP_ADDRESS}"
+    networks:
+      - partner_network
+    env_file:
+      - ./envs/.cms.env
+    depends_on:
+      - sqlserver
+    ports:
+      - "17000:8058"
+   #command: tail -f package.json
+ 
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    user: root
+    command: /opt/mssql/bin/sqlservr
+    stdin_open: true
+    environment:
+      SA_PASSWORD: "partner2023!"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+    networks:
+      - partner_network
+    ports:
+      - "17001:1433"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "host.wsl:${HOST_IP_ADDRESS}"
+    volumes:
+      - sqlserver_data:/var/opt/mssql/data
+
+
+  mssqltools:
+    image: mcr.microsoft.com/mssql-tools:latest
+    networks:
+      - partner_network
+    depends_on:
+      - sqlserver
+    volumes:
+      - .docker/config/sqlserver/1_init_db.sh:/tmp/1_init_db.sh
+    command: /tmp/1_init_db.sh
+    stdin_open: true
+  
+
+  minio:
+    image: quay.io/minio/minio
+    command: server --console-address ":9001" 
+    env_file:
+      - ./envs/.minio.env
+    networks:
+      - partner_network
+    ports:
+      - "17002:9000"
+      - "17003:9001"
+    restart: always
+    volumes:
+      - minio_data:/mnt/data
+      
+  miniobuckets:
+    image: minio/mc
+    networks:
+      - partner_network
+    env_file:
+      - ./envs/.minio.env
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      /usr/bin/mc config host add partner http://minio:9000 miniopartner miniopartner;
+      /usr/bin/mc mb partner/cms-uploads;
+      exit 0;
+      "
+
