@@ -22,7 +22,7 @@ namespace Partner.Services {
 
         public void SendEmail(List<string> emailsTo, List<string> attachments) {
             List<string> emailTo = emailsTo;
-            string subject = "Nota Fiscal Eletrônica - NFS-e";
+            string subject = "Nota Fiscal Eletrônica - NFS-e.";
             string body = "Olá!\n\nSegue anexo a Nota fiscal.\n\n\nQualquer dúvida, fico a disposição.";
             var message = PrepareteMessage(emailTo, subject, body, attachments);
 
